@@ -14,13 +14,14 @@ It contains three experiments:
 The project compares two Mem0 implementations:
 
 - **Text memory:** the current `mem0ai==2.0.14` package with local vector search.
-- **Graph memory:** the older `mem0ai==0.1.45` graph implementation in
+- **Graph memory:** a Mem0g composite backend that combines the same text
+  memory with a temporal Neo4j graph in
   [`mem0_eval/backends/graph/`](mem0_eval/backends/graph/).
 
-The graph code has its own environment because the current Mem0 package no
-longer exposes the graph API used by the original implementation. Results
-should therefore be read as a comparison between two Mem0 versions, not a
-perfect architecture-only comparison.
+The graph behavior is implemented directly in this repository rather than
+through the obsolete `mem0ai==0.1.45` graph API. Both backends now use the same
+current Mem0 text implementation; graph runs add entity/relation extraction,
+temporal Neo4j storage, and dual retrieval.
 
 ## Setup
 
@@ -56,31 +57,24 @@ uv run python -m mem0_eval.run locomo --help
 
 ## Run the graph-memory experiments
 
-Graph memory requires Neo4j and a separate pinned Python environment:
+Graph memory additionally requires Neo4j:
 
 ```bash
 docker compose up -d
-uv sync --project mem0_eval/backends/graph
-uv run --project mem0_eval/backends/graph \
-  python -m mem0_eval.run check-graph
-uv run --project mem0_eval/backends/graph \
-  python -m mem0_eval.run locomo --backend graph
-uv run --project mem0_eval/backends/graph \
-  python -m mem0_eval.run personamem --backend graph
-uv run --project mem0_eval/backends/graph \
-  python -m mem0_eval.run memory-changes --backend graph
+uv run python -m mem0_eval.run check-graph
+uv run python -m mem0_eval.run locomo --backend graph
+uv run python -m mem0_eval.run personamem --backend graph
+uv run python -m mem0_eval.run memory-changes --backend graph
 ```
 
 Clear all local Neo4j benchmark data without stopping the container:
 
 ```bash
-uv run --project mem0_eval/backends/graph \
-  python -m mem0_eval.backends.graph.clear_neo4j
+uv run python -m mem0_eval.backends.graph.clear_neo4j
 ```
 
 See [`mem0_eval/backends/graph/README.md`](mem0_eval/backends/graph/README.md)
-for why this
-separation is necessary.
+for the graph pipeline and metadata.
 
 ## Project layout
 

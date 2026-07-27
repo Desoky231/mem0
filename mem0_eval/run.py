@@ -31,7 +31,6 @@ from mem0_eval.benchmarks.personamem.cli import execute as execute_personamem
 
 ROOT = Path(__file__).resolve().parents[1]
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-GRAPH_MEM0_VERSION = "0.1.45"
 LOCOMO_URL = (
     "https://raw.githubusercontent.com/snap-research/locomo/"
     "main/data/locomo10.json"
@@ -132,17 +131,11 @@ def _backend_name(backend: str) -> str:
     return (
         "mem0_text_v2.0.14"
         if backend == "text"
-        else "mem0_graph_v0.1.45"
+        else "mem0g_composite_v2.0.14"
     )
 
 
 def _graph_environment() -> dict[str, Any]:
-    installed = version("mem0ai")
-    if installed != GRAPH_MEM0_VERSION:
-        raise RuntimeError(
-            f"Graph memory requires mem0ai {GRAPH_MEM0_VERSION}; found "
-            f"{installed}. Run with --project mem0_eval/backends/graph."
-        )
     from mem0_eval.backends.graph.adapter import verify_neo4j
 
     return {
@@ -169,7 +162,11 @@ def _build_adapter(
 
     from mem0_eval.backends.graph.adapter import build_graph_adapter
 
-    return build_graph_adapter(top_k=top_k)
+    return build_graph_adapter(
+        state_dir=state_dir,
+        top_k=top_k,
+        threshold=threshold,
+    )
 
 
 def run_locomo(args: argparse.Namespace) -> int:

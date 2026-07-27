@@ -8,6 +8,7 @@ dependencies = [
     "datasets>=5.0.0",
     "fastembed>=0.8.0",
     "mem0ai==2.0.14",
+    "neo4j>=6.0.0",
     "nltk>=3.9.2",
     "pytest>=9.0.0",
     "python-dotenv>=1.2.2",

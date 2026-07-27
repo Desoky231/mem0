@@ -2,13 +2,12 @@
 
 ## What is compared
 
-Text memory uses `mem0ai==2.0.14`. Graph memory uses the historical
-`mem0ai==0.1.45` `MemoryGraph` implementation. The graph API used by the
-original implementation is not available in the current package, so the two
-baselines cannot share one dependency environment.
+Text memory uses `mem0ai==2.0.14`. Mem0g uses that same text implementation
+plus a paper-specific graph layer implemented directly over Neo4j. The legacy
+`mem0ai==0.1.45` `MemoryGraph` package is not part of current runs.
 
-This means the evaluation compares complete implementations, not only vector
-storage versus graph storage.
+This keeps the text component and dependency environment shared, making the
+graph comparison an augmentation of the working text backend.
 
 ## Controls
 
@@ -41,12 +40,20 @@ benchmark. The paper describes an asynchronous periodic refresher but does not
 publish its cadence or summarization prompt, so five pairs is a documented
 benchmark choice.
 
-Questions search both speaker scopes. The answer prompt receives the two
-timestamped result groups separately, prioritizes newer conflicting memories,
-resolves relative dates, and requests an answer shorter than 5–6 words. This is
-the paper's appendix results-generation prompt. After official token F1 is
-calculated, the same generated answer is evaluated with the paper's binary
-LLM-judge prompt. Judge failures are recorded without discarding the F1 result.
+For Mem0g, text extraction and two-stage entity/relation extraction run
+concurrently for every pair. Context is available to the graph extractor only
+for resolving references; it cannot be the sole evidence for a relation.
+Graph nodes and relations include dialogue/message provenance, observation and
+session metadata, creation and validity timestamps, and status. Contradicted
+relations are marked obsolete with a `valid_to` value instead of being deleted.
+
+Graph retrieval merges entity-centric neighborhood scoring with semantic
+triplet scoring. Questions search both speaker scopes. The Mem0g answer prompt
+receives text memories and graph relations separately for both speakers. It
+prioritizes newer conflicting memories, resolves relative dates, and requests
+an answer shorter than 5–6 words. After official token F1 is calculated, the
+same generated answer is evaluated with the paper's binary LLM-judge prompt.
+Judge failures are recorded without discarding the F1 result.
 
 ## Memory changes
 
@@ -57,11 +64,12 @@ conversational conflict-resolution behavior.
 
 ## Interpretation
 
-The checked-in report describes results from the earlier session-level LoCoMo
-runner. It should not be presented as evidence for the new incremental
-protocol until that protocol is run and the report is regenerated. Even after
-regeneration, this is paper-aligned rather than an exact reproduction: it uses
-DeepSeek, different embeddings, newer text-memory internals, and a historical
-graph package.
-Historical graph extraction can vary between runs even at temperature zero, so
-larger repeated runs are needed for stable estimates.
+The checked-in graph report describes the retired historical graph backend. It
+should not be presented as evidence for the composite Mem0g implementation
+until a new graph run is completed and the report is regenerated. Even then,
+this is paper-aligned rather than an exact reproduction: it uses DeepSeek,
+different embeddings, a documented five-pair summary cadence, and
+repository-defined similarity thresholds because the paper does not publish
+all prompts, thresholds, or refresh timing. Graph extraction can vary between
+runs even at temperature zero, so larger repeated runs are needed for stable
+estimates.

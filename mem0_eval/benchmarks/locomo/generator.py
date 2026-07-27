@@ -65,6 +65,31 @@ Question: {question}
 Answer:"""
 
 
+GRAPH_RESULTS_GENERATION_PROMPT = RESULTS_GENERATION_PROMPT.replace(
+    "5. Formulate a precise, concise answer based solely on the evidence in the memories",
+    "5. Analyze the knowledge graph relations to understand the user’s knowledge context\n\n"
+    "6. Formulate a precise, concise answer based solely on the evidence in the memories",
+).replace(
+    "6. Double-check that your answer directly addresses the question asked",
+    "7. Double-check that your answer directly addresses the question asked",
+).replace(
+    "7. Ensure your final answer is specific and avoids vague time references",
+    "8. Ensure your final answer is specific and avoids vague time references",
+).replace(
+    "{speaker_1_memories}\n\nMemories for user {speaker_2_user_id}:",
+    "{speaker_1_memories}\n\n"
+    "Relations for user {speaker_1_user_id}:\n\n"
+    "{speaker_1_graph_memories}\n\n"
+    "Memories for user {speaker_2_user_id}:",
+).replace(
+    "{speaker_2_memories}\n\nQuestion: {question}",
+    "{speaker_2_memories}\n\n"
+    "Relations for user {speaker_2_user_id}:\n\n"
+    "{speaker_2_graph_memories}\n\n"
+    "Question: {question}",
+)
+
+
 JUDGE_PROMPT = """Your task is to label an answer to a question as "CORRECT" or "WRONG".
 You will be given the following data:
 (1) a question (posed by one user to another user),
@@ -97,7 +122,9 @@ Do NOT include both CORRECT and WRONG in your response, or it will break the eva
 Just return the label CORRECT or WRONG in a json format with the key as "label"."""
 
 
-def _render_speaker_memories(retrieval: Any) -> tuple[str, str, str, str]:
+def _render_speaker_context(
+    retrieval: Any,
+) -> tuple[str, str, str, str, str, str]:
     speakers = (
         retrieval.get("speakers", [])
         if isinstance(retrieval, dict)
@@ -119,13 +146,30 @@ def _render_speaker_memories(retrieval: Any) -> tuple[str, str, str, str]:
             ensure_ascii=False,
             default=str,
         ),
+        json.dumps(
+            first.get("graph_memories", []),
+            ensure_ascii=False,
+            default=str,
+        ),
         str(second.get("speaker") or second.get("user_id") or "speaker_2"),
         json.dumps(
             second.get("memories", []),
             ensure_ascii=False,
             default=str,
         ),
+        json.dumps(
+            second.get("graph_memories", []),
+            ensure_ascii=False,
+            default=str,
+        ),
     )
+
+
+def _render_speaker_memories(retrieval: Any) -> tuple[str, str, str, str]:
+    first, first_memories, _, second, second_memories, _ = (
+        _render_speaker_context(retrieval)
+    )
+    return first, first_memories, second, second_memories
 
 
 def _judge_label(raw: str) -> str:
@@ -153,14 +197,29 @@ class AnswerGenerator:
         self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
     def answer(self, *, question: str, category: int, retrieval: Any) -> str:
-        speaker_1, memories_1, speaker_2, memories_2 = (
-            _render_speaker_memories(retrieval)
+        (
+            speaker_1,
+            memories_1,
+            graph_memories_1,
+            speaker_2,
+            memories_2,
+            graph_memories_2,
+        ) = (
+            _render_speaker_context(retrieval)
         )
-        prompt = RESULTS_GENERATION_PROMPT.format(
+        template = (
+            GRAPH_RESULTS_GENERATION_PROMPT
+            if isinstance(retrieval, dict)
+            and retrieval.get("memory_mode") == "text_and_graph"
+            else RESULTS_GENERATION_PROMPT
+        )
+        prompt = template.format(
             speaker_1_user_id=speaker_1,
             speaker_1_memories=memories_1,
+            speaker_1_graph_memories=graph_memories_1,
             speaker_2_user_id=speaker_2,
             speaker_2_memories=memories_2,
+            speaker_2_graph_memories=graph_memories_2,
             question=question,
         )
         response = self.client.chat.completions.create(

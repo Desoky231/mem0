@@ -15,6 +15,7 @@ from mem0_eval.benchmarks.locomo.metrics import (
     token_f1,
 )
 from mem0_eval.benchmarks.locomo.generator import (
+    GRAPH_RESULTS_GENERATION_PROMPT,
     RESULTS_GENERATION_PROMPT,
     _judge_label,
 )
@@ -195,6 +196,22 @@ def test_incremental_runner_carries_context_across_sessions() -> None:
 def test_paper_prompts_and_judge_json_parser() -> None:
     assert "Memories for user {speaker_1_user_id}" in RESULTS_GENERATION_PROMPT
     assert "The answer should be less than 5-6 words." in RESULTS_GENERATION_PROMPT
+    assert (
+        "Relations for user {speaker_1_user_id}"
+        in GRAPH_RESULTS_GENERATION_PROMPT
+    )
+    assert (
+        "{speaker_1_graph_memories}"
+        in GRAPH_RESULTS_GENERATION_PROMPT
+    )
+    assert (
+        "Relations for user {speaker_2_user_id}"
+        in GRAPH_RESULTS_GENERATION_PROMPT
+    )
+    assert (
+        "{speaker_2_graph_memories}"
+        in GRAPH_RESULTS_GENERATION_PROMPT
+    )
     assert _judge_label('{"label": "correct"}') == "CORRECT"
 
 

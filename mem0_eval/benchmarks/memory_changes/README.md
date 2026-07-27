@@ -19,8 +19,7 @@ Run the checks with:
 
 ```bash
 uv run python -m mem0_eval.run memory-changes
-uv run --project mem0_eval/backends/graph \
-  python -m mem0_eval.run memory-changes --backend graph
+uv run python -m mem0_eval.run memory-changes --backend graph
 ```
 
 The definitions are in [`cases.json`](cases.json).

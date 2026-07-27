@@ -114,18 +114,24 @@ def execute(
                 "rolling context and summary continue across session boundaries"
             ),
             "paper_alignment": (
-                "Mem0 paper section 2.1 extraction context and appendix answer prompt"
+                "Mem0 paper sections 2.1-2.2 extraction/retrieval and "
+                "appendix answer prompts"
             ),
             "known_paper_differences": [
                 "DeepSeek replaces GPT-4o-mini",
                 "BAAI/bge-small-en-v1.5 replaces the paper model stack",
                 "summary refresh is synchronous every 5 pairs; the paper does not publish its cadence",
                 "text backend uses mem0ai 2.0.14 ADD-only internals",
-                "graph backend uses historical mem0ai 0.1.45",
+                "graph conflict decisions use deterministic functional-relation "
+                "rules plus DeepSeek for ambiguous cases",
+                "the paper does not publish entity/relation similarity thresholds",
             ],
             "top_k": args.top_k,
             "answer_model": "same DeepSeek model for both backends",
-            "answer_prompt": "Mem0 paper appendix results-generation prompt",
+            "answer_prompt": (
+                "Mem0 or Mem0g paper appendix results-generation prompt, "
+                "selected by backend"
+            ),
             "answer_metrics": [
                 "official LoCoMo token F1",
                 "Mem0 paper appendix LLM-as-a-judge prompt",

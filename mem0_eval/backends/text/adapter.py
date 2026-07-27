@@ -32,6 +32,8 @@ class TextMemoryAdapter:
         session_date: str,
         conversation_summary: str,
         recent_messages: list[str],
+        message_ids: list[str] | None = None,
+        source_dialogue_ids: list[str] | None = None,
     ) -> Any:
         context = (
             f"Extract memories only about {speaker}. The new exchange occurred "

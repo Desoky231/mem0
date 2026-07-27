@@ -38,6 +38,8 @@ class MemoryAdapter(Protocol):
         session_date: str,
         conversation_summary: str,
         recent_messages: list[str],
+        message_ids: list[str] | None = None,
+        source_dialogue_ids: list[str] | None = None,
     ) -> Any: ...
     def search(self, query: str, *, user_id: str) -> Any: ...
     def delete_all(self, *, user_id: str) -> Any: ...
@@ -97,25 +99,44 @@ def _search_both_speakers(
     *,
     speaker_ids: dict[str, str],
 ) -> dict[str, Any]:
-    return {
-        "speakers": [
+    speakers = []
+    graph_mode = False
+    for speaker, speaker_id in speaker_ids.items():
+        result = adapter.search(question, user_id=speaker_id)
+        if isinstance(result, dict) and "graph_memories" in result:
+            graph_mode = True
+            memories = result.get("memories", [])
+            graph_memories = result.get("graph_memories", [])
+        else:
+            memories = result
+            graph_memories = []
+        speakers.append(
             {
                 "speaker": speaker,
                 "user_id": speaker_id,
-                "memories": adapter.search(question, user_id=speaker_id),
+                "memories": memories,
+                "graph_memories": graph_memories,
             }
-            for speaker, speaker_id in speaker_ids.items()
-        ]
+        )
+    return {
+        "memory_mode": (
+            "text_and_graph" if graph_mode else "text"
+        ),
+        "speakers": speakers,
     }
 
 
-def _empty_retrieval(speaker_ids: dict[str, str]) -> dict[str, Any]:
+def _empty_retrieval(
+    speaker_ids: dict[str, str], *, graph_mode: bool = False
+) -> dict[str, Any]:
     return {
+        "memory_mode": "text_and_graph" if graph_mode else "text",
         "speakers": [
             {
                 "speaker": speaker,
                 "user_id": speaker_id,
                 "memories": [],
+                "graph_memories": [],
             }
             for speaker, speaker_id in speaker_ids.items()
         ]
@@ -173,6 +194,14 @@ def run_conversation(
                                 session_date=exchange.session_date,
                                 conversation_summary=conversation_summary,
                                 recent_messages=list(recent_messages),
+                                message_ids=[
+                                    message.dialogue_id
+                                    for message in exchange.messages
+                                ],
+                                source_dialogue_ids=[
+                                    message.dialogue_id
+                                    for message in exchange.messages
+                                ],
                             )
                         )
                     )
@@ -274,7 +303,13 @@ def run_conversation(
                     generator.answer(
                         question=question.question,
                         category=question.category,
-                        retrieval=_empty_retrieval(speaker_ids),
+                        retrieval=_empty_retrieval(
+                            speaker_ids,
+                            graph_mode=(
+                                retrieval.get("memory_mode")
+                                == "text_and_graph"
+                            ),
+                        ),
                     )
                     if include_no_memory_control
                     else None
