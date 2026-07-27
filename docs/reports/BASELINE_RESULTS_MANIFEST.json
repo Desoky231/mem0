@@ -1,0 +1,58 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-07-27T08:22:00+03:00",
+  "configuration": {
+    "seed": 42,
+    "top_k": 5,
+    "answer_and_extraction_model": "deepseek-v4-flash",
+    "deepseek_thinking": "disabled",
+    "text_memory": "mem0ai 2.0.14",
+    "graph_memory": "mem0ai 0.1.45 MemoryGraph",
+    "embedding_model": "BAAI/bge-small-en-v1.5",
+    "embedding_dimensions": 384
+  },
+  "deliverables": {
+    "html": {
+      "path": "mem0_paired_baseline_evaluation.html",
+      "sha256": "ef2f7e764702afff4331d70cd641aace8262394c363080b69ab17998e3ff9491"
+    },
+    "historical_pdf": {
+      "path": "Mem0_Paired_Baseline_Evaluation.pdf",
+      "sha256": "80601cd486186aa9b80c3310abeaa01a4c042831df44970320e7ef780029c33d",
+      "note": "July 26 snapshot; it does not contain the July 27 expanded results."
+    }
+  },
+  "memory_changes": {
+    "sample": "15 controlled update-and-delete cases with exact markers",
+    "text_report": {
+      "path": "../../results/memory_changes/20260727T050840Z_df25b602_text.json",
+      "sha256": "504e282781c11df6371496eb0a4e5bfa159bb798874dbd07a9c0545869041d0b"
+    },
+    "graph_report": {
+      "path": "../../results/memory_changes/20260727T051050Z_9fd2fbff_graph.json",
+      "sha256": "4fe11fc3d52a45267195323996de3b4c046d8e558b83bce1d6f8a28ed6ca0edc"
+    }
+  },
+  "personamem_v2": {
+    "sample": "60 paired balanced rows; ten per eligible preference type; sensitive and multimodal excluded",
+    "text_report": {
+      "path": "../../results/personamem_v2/20260727T051709Z_a898f294_mem0_text_v2.0.14.json",
+      "sha256": "fe6c59d1c0b6a84736d8ca0c4f0d76277d7039f6b5476579821ef0e825f46761"
+    },
+    "graph_report": {
+      "path": "../../results/personamem_v2/20260727T052228Z_4497f5b0_mem0_graph_v0.1.45.json",
+      "sha256": "7cc9e517c04b9f16ffa7f43fce477835fd8e169d94a926b4912465f2ec21fd50"
+    }
+  },
+  "locomo": {
+    "sample": "one complete 19-session conversation (conv-26); 40 paired questions, ten per category from categories 1-4",
+    "text_report": {
+      "path": "../../results/locomo/20260727T061003Z_5b385451_mem0_text_v2.0.14.json",
+      "sha256": "d679d2302c61dbb115302952c1e6870586688657032510fa82970c6803e56fd5"
+    },
+    "graph_report": {
+      "path": "../../results/locomo/20260727T061332Z_f2814e5a_mem0_graph_v0.1.45.json",
+      "sha256": "d099f20660f3bcc9e89763330540eb1b33d9309dbe4badc4c6944ed1c19cfed2"
+    }
+  }
+}

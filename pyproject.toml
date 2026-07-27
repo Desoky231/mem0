@@ -1,0 +1,19 @@
+[project]
+name = "mem0-eval"
+version = "0.1.0"
+description = "Small evaluations of Mem0 text and graph memory behavior"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "datasets>=5.0.0",
+    "fastembed>=0.8.0",
+    "mem0ai==2.0.14",
+    "nltk>=3.9.2",
+    "pytest>=9.0.0",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

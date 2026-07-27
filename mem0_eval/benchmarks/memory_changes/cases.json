@@ -1,0 +1,137 @@
+[
+  {
+    "case_id": "preferred_drink",
+    "subject": "The user's preferred morning drink",
+    "baseline_statement": "My current preferred morning drink is tea with identifier ORCHID71.",
+    "updated_statement": "My current preferred morning drink is coffee with identifier COBALT92.",
+    "query": "What is my current preferred morning drink and its identifier?",
+    "old_marker": "ORCHID71",
+    "new_marker": "COBALT92"
+  },
+  {
+    "case_id": "office_location",
+    "subject": "The user's office location",
+    "baseline_statement": "My current office is in Building A with identifier MAPLE34.",
+    "updated_statement": "My current office is in Building C with identifier QUARTZ58.",
+    "query": "Where is my current office and what is its identifier?",
+    "old_marker": "MAPLE34",
+    "new_marker": "QUARTZ58"
+  },
+  {
+    "case_id": "dietary_preference",
+    "subject": "The user's dietary preference",
+    "baseline_statement": "My current dietary preference includes dairy under identifier AMBER26.",
+    "updated_statement": "My current dietary preference avoids dairy under identifier INDIGO83.",
+    "query": "What is my current dietary preference and its identifier?",
+    "old_marker": "AMBER26",
+    "new_marker": "INDIGO83"
+  },
+  {
+    "case_id": "home_city",
+    "subject": "The user's home city",
+    "baseline_statement": "My current home city is Alexandria with identifier LANTERN47.",
+    "updated_statement": "My current home city is Cairo with identifier HARBOR65.",
+    "query": "What is my current home city and its identifier?",
+    "old_marker": "LANTERN47",
+    "new_marker": "HARBOR65"
+  },
+  {
+    "case_id": "commute_method",
+    "subject": "The user's commute method",
+    "baseline_statement": "My current commute method is the metro with identifier SILVER19.",
+    "updated_statement": "My current commute method is a bicycle with identifier COPPER64.",
+    "query": "What is my current commute method and its identifier?",
+    "old_marker": "SILVER19",
+    "new_marker": "COPPER64"
+  },
+  {
+    "case_id": "weekly_meeting",
+    "subject": "The user's weekly meeting day",
+    "baseline_statement": "My current weekly team meeting is on Tuesday with identifier FALCON32.",
+    "updated_statement": "My current weekly team meeting is on Thursday with identifier ROBIN79.",
+    "query": "When is my current weekly team meeting and what is its identifier?",
+    "old_marker": "FALCON32",
+    "new_marker": "ROBIN79"
+  },
+  {
+    "case_id": "project_role",
+    "subject": "The user's project role",
+    "baseline_statement": "My current project role is backend developer with identifier CEDAR41.",
+    "updated_statement": "My current project role is technical lead with identifier WILLOW86.",
+    "query": "What is my current project role and its identifier?",
+    "old_marker": "CEDAR41",
+    "new_marker": "WILLOW86"
+  },
+  {
+    "case_id": "preferred_language",
+    "subject": "The user's preferred programming language",
+    "baseline_statement": "My current preferred programming language is Python with identifier NEBULA28.",
+    "updated_statement": "My current preferred programming language is Rust with identifier COMET73.",
+    "query": "What is my current preferred programming language and its identifier?",
+    "old_marker": "NEBULA28",
+    "new_marker": "COMET73"
+  },
+  {
+    "case_id": "gym_location",
+    "subject": "The user's gym location",
+    "baseline_statement": "My current gym is the Downtown branch with identifier PEBBLE17.",
+    "updated_statement": "My current gym is the Riverside branch with identifier GRANITE62.",
+    "query": "Which gym branch do I currently use and what is its identifier?",
+    "old_marker": "PEBBLE17",
+    "new_marker": "GRANITE62"
+  },
+  {
+    "case_id": "subscription_plan",
+    "subject": "The user's subscription plan",
+    "baseline_statement": "My current subscription is the Basic plan with identifier SONATA39.",
+    "updated_statement": "My current subscription is the Premium plan with identifier RHYTHM84.",
+    "query": "What is my current subscription plan and its identifier?",
+    "old_marker": "SONATA39",
+    "new_marker": "RHYTHM84"
+  },
+  {
+    "case_id": "working_timezone",
+    "subject": "The user's working timezone",
+    "baseline_statement": "My current working timezone is UTC plus two with identifier POLAR25.",
+    "updated_statement": "My current working timezone is UTC plus three with identifier SOLAR76.",
+    "query": "What is my current working timezone and its identifier?",
+    "old_marker": "POLAR25",
+    "new_marker": "SOLAR76"
+  },
+  {
+    "case_id": "contact_channel",
+    "subject": "The user's preferred contact channel",
+    "baseline_statement": "My current preferred contact channel is email with identifier VIOLET31.",
+    "updated_statement": "My current preferred contact channel is Signal with identifier SCARLET68.",
+    "query": "What is my current preferred contact channel and its identifier?",
+    "old_marker": "VIOLET31",
+    "new_marker": "SCARLET68"
+  },
+  {
+    "case_id": "vacation_destination",
+    "subject": "The user's planned vacation destination",
+    "baseline_statement": "My current planned vacation destination is Athens with identifier TEMPLE24.",
+    "updated_statement": "My current planned vacation destination is Rome with identifier FORUM81.",
+    "query": "What is my current planned vacation destination and its identifier?",
+    "old_marker": "TEMPLE24",
+    "new_marker": "FORUM81"
+  },
+  {
+    "case_id": "work_schedule",
+    "subject": "The user's work schedule",
+    "baseline_statement": "My current work schedule starts at 8 AM with identifier SUNRISE36.",
+    "updated_statement": "My current work schedule starts at 10 AM with identifier DAYLIGHT74.",
+    "query": "When does my current work schedule start and what is its identifier?",
+    "old_marker": "SUNRISE36",
+    "new_marker": "DAYLIGHT74"
+  },
+  {
+    "case_id": "backup_provider",
+    "subject": "The user's cloud backup provider",
+    "baseline_statement": "My current cloud backup provider is Dropbox with identifier CLOUD29.",
+    "updated_statement": "My current cloud backup provider is Google Drive with identifier RAINBOW67.",
+    "query": "What is my current cloud backup provider and its identifier?",
+    "old_marker": "CLOUD29",
+    "new_marker": "RAINBOW67"
+  }
+]

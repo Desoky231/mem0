@@ -1,0 +1,31 @@
+# Environments & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.pytest_cache/
+
+# Data Caches & Vector Databases
+data/*.json
+data/qdrant_*
+
+# Generated Benchmark Results & Runs
+results/
+
+# IDE & OS
+.DS_Store
+.vscode/
+.idea/
+
+# Local agent configuration
+.agents/
+.codex/

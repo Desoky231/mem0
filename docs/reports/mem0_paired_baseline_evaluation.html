@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mem0 Paired Evaluation Update — 2026-07-27</title>
+  <style>
+    :root { --ink:#172033; --muted:#5b667a; --line:#dce2ea; --paper:#f7f9fc; --blue:#1d4ed8; --green:#047857; --orange:#b45309; }
+    * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.55 system-ui,sans-serif; }
+    main { max-width:1080px; margin:32px auto; padding:0 22px 42px; } header,section { background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px; margin:18px 0; }
+    h1 { font-size:2rem; line-height:1.18; margin:0 0 8px; } h2 { font-size:1.25rem; margin:0 0 12px; } h3 { font-size:1rem; margin:0 0 5px; } p { margin:8px 0; }
+    .muted { color:var(--muted); } .callout { border-left:4px solid var(--blue); background:#eff6ff; padding:14px 16px; border-radius:6px; } .warning { border-left-color:var(--orange); background:#fff7ed; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-top:14px; } .card { border:1px solid var(--line); border-radius:10px; padding:15px; }
+    .number { font-size:1.5rem; font-weight:700; color:var(--blue); } table { width:100%; border-collapse:collapse; margin:14px 0 6px; font-size:.94rem; }
+    th,td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; } th { color:#334155; background:#f8fafc; } .good { color:var(--green); font-weight:650; }
+    code { background:#eef2f7; border-radius:4px; padding:1px 4px; } a { color:var(--blue); } ul { margin:8px 0; padding-left:20px; }
+  </style>
+</head>
+<body><main>
+  <header>
+    <h1>Mem0 paired evaluation update</h1>
+    <p class="muted">Run date: 27 July 2026 · DeepSeek V4 Flash · seed 42 · top-5 retrieval</p>
+    <p>This report replaces the earlier partial-session LoCoMo pilot. Both backends ingested all 19 dated sessions of <code>conv-26</code> before answering the same 40 questions.</p>
+    <div class="callout warning"><strong>Important comparability note:</strong> these are results for this repository’s DeepSeek, session-level benchmark configuration—not a reproduction of the Mem0 paper. The paper uses GPT-4o-mini and incremental message-pair extraction with a rolling 10-message context, an asynchronously refreshed conversation summary, top-10 similar memories during updates, and a two-speaker timestamp-aware answer prompt. Do not compare the F1 values here directly with the paper’s published Mem0 scores.</div>
+  </header>
+
+  <section>
+    <h2>What was compared</h2>
+    <div class="grid">
+      <div class="card"><h3>Text memory</h3><p><span class="number">2.0.14</span><br>Current Mem0 with local Qdrant vector retrieval.</p></div>
+      <div class="card"><h3>Graph memory</h3><p><span class="number">0.1.45</span><br>Historical Mem0 <code>MemoryGraph</code> with Neo4j.</p></div>
+      <div class="card"><h3>Paired samples</h3><p><span class="number">60 / 40</span><br>Identical PersonaMem rows and LoCoMo questions for both backends.</p></div>
+    </div>
+    <div class="callout warning"><strong>Version limitation:</strong> this compares complete current and historical implementations, not a pure vector-versus-graph architecture ablation.</div>
+  </section>
+
+  <section>
+    <h2>Memory changes: 15 controlled updates</h2>
+    <p>Every case adds an original fact, adds a conflicting replacement, searches, inspects storage, then deletes its isolated scope. Exact identifiers make stale facts auditable.</p>
+    <table><thead><tr><th>Metric</th><th>Text</th><th>Graph</th></tr></thead><tbody>
+      <tr><td>New fact retrieved after update</td><td class="good">15/15</td><td>12/15</td></tr>
+      <tr><td>Old fact retrieved after update</td><td>15/15</td><td class="good">4/15</td></tr>
+      <tr><td>Old fact still stored after update</td><td>15/15</td><td>11/15</td></tr>
+      <tr><td>Clean after explicit deletion</td><td class="good">15/15</td><td class="good">15/15</td></tr>
+      <tr><td>Retrieval p50</td><td>22 ms</td><td>1,674 ms</td></tr>
+      <tr><td>Operation p50</td><td>1.49 s</td><td>7.52 s</td></tr>
+    </tbody></table>
+    <p class="muted">Graph suppressed stale facts more often in top-5 retrieval, but frequently retained stale graph state and sometimes missed the current fact. Text always retrieved the current fact but retained every obsolete fact.</p>
+  </section>
+
+  <section>
+    <h2>PersonaMem-v2: 60 independent conversations</h2>
+    <p>Each row stored only its own related conversation snippet, then used the same answer model with and without retrieved memory.</p>
+    <table><thead><tr><th>Metric</th><th>Text</th><th>Graph</th></tr></thead><tbody>
+      <tr><td>MCQ accuracy</td><td class="good">29/60 · 48.3%</td><td>23/60 · 38.3%</td></tr>
+      <tr><td>No-memory accuracy</td><td>13/60 · 21.7%</td><td>13/60 · 21.7%</td></tr>
+      <tr><td>Memory improvement</td><td class="good">+26.7 points</td><td>+16.7 points</td></tr>
+      <tr><td>Non-empty retrieval</td><td>76.7%</td><td>66.7%</td></tr>
+      <tr><td>Updated/forget cases correct</td><td>2/10</td><td>0/10</td></tr>
+      <tr><td>Ingestion / retrieval p50</td><td>2.14 s / 29 ms</td><td>10.90 s / 1,715 ms</td></tr>
+    </tbody></table>
+    <p>The direct text-minus-graph accuracy difference was +10.0 points, with a paired 95% interval of −1.7 to +21.7 points. Both systems improved over their no-memory controls, but this sample does not establish a conclusive direct accuracy win for text.</p>
+  </section>
+
+  <section>
+    <h2>LoCoMo: one complete 19-session conversation</h2>
+    <p><code>conv-26</code> was fully ingested by both backends. The same 40 questions were evaluated: 10 each from single-hop, temporal, multi-hop, and open-domain categories. Category 5 was excluded.</p>
+    <p class="muted">Each dated session is submitted as one ingestion unit in this benchmark. That preserves complete-session context, but differs from the paper’s incremental message-pair memory pipeline.</p>
+    <table><thead><tr><th>Metric</th><th>Text</th><th>Graph</th></tr></thead><tbody>
+      <tr><td>Official LoCoMo F1</td><td class="good">13.96%</td><td>3.31%</td></tr>
+      <tr><td>No-memory F1</td><td>0.81%</td><td>0.81%</td></tr>
+      <tr><td>Memory F1 improvement</td><td class="good">+13.15 points</td><td>+2.50 points</td></tr>
+      <tr><td>Answer-token recall</td><td>50.62%</td><td>4.88%</td></tr>
+      <tr><td>Answer abstention</td><td>42.5%</td><td>97.5%</td></tr>
+      <tr><td>Retrieval / session-ingestion p50</td><td>35 ms / 4.60 s</td><td>1,421 ms / 17.56 s</td></tr>
+    </tbody></table>
+    <table><thead><tr><th>Question type</th><th>Text F1</th><th>Graph F1</th></tr></thead><tbody>
+      <tr><td>Single-hop</td><td>7.86%</td><td>10.00%</td></tr>
+      <tr><td>Temporal</td><td class="good">27.46%</td><td>0.00%</td></tr>
+      <tr><td>Multi-hop</td><td class="good">4.66%</td><td>2.00%</td></tr>
+      <tr><td>Open-domain</td><td class="good">15.87%</td><td>1.25%</td></tr>
+    </tbody></table>
+    <p>The paired text-minus-graph F1 difference was <strong>+10.65 points</strong>, 95% interval <strong>+3.01 to +17.52</strong>. Both systems returned non-empty retrieval for every question, but graph content rarely supported an answer.</p>
+  </section>
+
+  <section>
+    <h2>Interpretation</h2>
+    <ul>
+      <li>Text memory was faster and stronger on this complete-conversation LoCoMo run.</li>
+      <li>Graph reduced stale-fact retrieval in controlled updates, but stale graph state and current-fact misses remained important failures.</li>
+      <li>Historical graph processing logged malformed deletion-extraction responses and search-tool errors during PersonaMem, although all 60 rows produced reports.</li>
+      <li>These are paired pilots, not a reproduction of published Mem0 results: the model, ingestion unit, extraction context, update retrieval depth, and answer prompt differ from the paper. More complete conversations and repeated seeds are needed before generalizing.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Raw reports</h2>
+    <p>
+      <a href="../../results/memory_changes/20260727T050840Z_df25b602_text.json">Memory changes — text</a> ·
+      <a href="../../results/memory_changes/20260727T051050Z_9fd2fbff_graph.json">Memory changes — graph</a> ·
+      <a href="../../results/personamem_v2/20260727T051709Z_a898f294_mem0_text_v2.0.14.json">PersonaMem — text</a> ·
+      <a href="../../results/personamem_v2/20260727T052228Z_4497f5b0_mem0_graph_v0.1.45.json">PersonaMem — graph</a> ·
+      <a href="../../results/locomo/20260727T061003Z_5b385451_mem0_text_v2.0.14.json">LoCoMo — text</a> ·
+      <a href="../../results/locomo/20260727T061332Z_f2814e5a_mem0_graph_v0.1.45.json">LoCoMo — graph</a>
+    </p>
+  </section>
+</main></body></html>
