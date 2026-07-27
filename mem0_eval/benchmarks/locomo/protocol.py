@@ -2,28 +2,66 @@ from __future__ import annotations
 
 import json
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable
 from typing import Any, Protocol
 
 from mem0_eval.benchmarks.eval_stats import (
     bootstrap_mean_interval,
     paired_difference_interval,
+    wilson_interval,
 )
 from mem0_eval.benchmarks.memory_changes.metrics import percentile
 
-from .data import CATEGORY_NAMES, LoCoMoConversation, LoCoMoQuestion, sample_questions
+from .data import (
+    CATEGORY_NAMES,
+    LoCoMoConversation,
+    LoCoMoExchange,
+    LoCoMoQuestion,
+    sample_questions,
+)
 from .metrics import answer_token_recall, official_locomo_f1
+
+
+SUMMARY_PAIR_INTERVAL = 5
 
 
 class MemoryAdapter(Protocol):
     def add(self, statement: str, *, user_id: str) -> Any: ...
+    def add_exchange(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        user_id: str,
+        speaker: str,
+        session: str,
+        session_date: str,
+        conversation_summary: str,
+        recent_messages: list[str],
+    ) -> Any: ...
     def search(self, query: str, *, user_id: str) -> Any: ...
     def delete_all(self, *, user_id: str) -> Any: ...
 
 
 class Generator(Protocol):
     def answer(self, *, question: str, category: int, retrieval: Any) -> str: ...
+    def judge(
+        self,
+        *,
+        question: str,
+        gold_answer: str,
+        generated_answer: str,
+    ) -> str: ...
+
+
+class Summarizer(Protocol):
+    def update(
+        self,
+        *,
+        previous_summary: str,
+        batch_index: int,
+        messages: list[str],
+    ) -> str: ...
 
 
 def _timed(call: Callable[[], Any]) -> tuple[Any, float]:
@@ -32,9 +70,62 @@ def _timed(call: Callable[[], Any]) -> tuple[Any, float]:
     return result, round((time.perf_counter() - started) * 1000, 3)
 
 
+def _speaker_ids(
+    conversation: LoCoMoConversation, user_id: str
+) -> dict[str, str]:
+    return {
+        speaker: f"{user_id}_speaker_{index}"
+        for index, speaker in enumerate(conversation.speakers, start=1)
+    }
+
+
+def _messages_for_speaker(
+    exchange: LoCoMoExchange, target_speaker: str
+) -> list[dict[str, str]]:
+    return [
+        {
+            "role": "user" if message.speaker == target_speaker else "assistant",
+            "content": message.formatted(),
+        }
+        for message in exchange.messages
+    ]
+
+
+def _search_both_speakers(
+    adapter: MemoryAdapter,
+    question: str,
+    *,
+    speaker_ids: dict[str, str],
+) -> dict[str, Any]:
+    return {
+        "speakers": [
+            {
+                "speaker": speaker,
+                "user_id": speaker_id,
+                "memories": adapter.search(question, user_id=speaker_id),
+            }
+            for speaker, speaker_id in speaker_ids.items()
+        ]
+    }
+
+
+def _empty_retrieval(speaker_ids: dict[str, str]) -> dict[str, Any]:
+    return {
+        "speakers": [
+            {
+                "speaker": speaker,
+                "user_id": speaker_id,
+                "memories": [],
+            }
+            for speaker, speaker_id in speaker_ids.items()
+        ]
+    }
+
+
 def run_conversation(
     adapter: MemoryAdapter,
     generator: Generator,
+    summarizer: Summarizer,
     conversation: LoCoMoConversation,
     *,
     user_id: str,
@@ -53,22 +144,123 @@ def run_conversation(
         seed=seed,
     )
     ingestion: list[dict[str, Any]] = []
+    summaries: list[dict[str, Any]] = []
     evaluations: list[dict[str, Any]] = []
+    speaker_ids = _speaker_ids(conversation, user_id)
+    recent_messages: deque[str] = deque(maxlen=10)
+    pending_summary_messages: list[str] = []
+    pending_summary_exchange_ids: list[str] = []
+    summary_batch_index = 0
+    conversation_summary = ""
     status = "completed"
     error = None
     try:
+        exchanges = conversation.incremental_exchanges(len(sessions))
         for key in sessions:
-            result, latency = _timed(
-                lambda session_key=key: adapter.add(
-                    conversation.session_text(session_key), user_id=user_id
+            session_exchanges = [
+                exchange for exchange in exchanges if exchange.session == key
+            ]
+            for exchange in session_exchanges:
+                speaker_results = []
+                for speaker, speaker_id in speaker_ids.items():
+                    result, latency = _timed(
+                        lambda target=speaker, target_id=speaker_id: (
+                            adapter.add_exchange(
+                                _messages_for_speaker(exchange, target),
+                                user_id=target_id,
+                                speaker=target,
+                                session=exchange.session,
+                                session_date=exchange.session_date,
+                                conversation_summary=conversation_summary,
+                                recent_messages=list(recent_messages),
+                            )
+                        )
+                    )
+                    speaker_results.append(
+                        {
+                            "speaker": speaker,
+                            "user_id": speaker_id,
+                            "latency_ms": latency,
+                            "result": result,
+                        }
+                    )
+                ingestion.append(
+                    {
+                        "session": key,
+                        "exchange_id": exchange.exchange_id,
+                        "dialogue_ids": [
+                            message.dialogue_id for message in exchange.messages
+                        ],
+                        "speaker_results": speaker_results,
+                        "latency_ms": round(
+                            sum(item["latency_ms"] for item in speaker_results), 3
+                        ),
+                    }
+                )
+                recent_messages.extend(
+                    message.formatted() for message in exchange.messages
+                )
+                pending_summary_messages.extend(
+                    message.formatted() for message in exchange.messages
+                )
+                pending_summary_exchange_ids.append(exchange.exchange_id)
+
+                if (
+                    len(pending_summary_exchange_ids)
+                    == SUMMARY_PAIR_INTERVAL
+                ):
+                    summary_batch_index += 1
+                    previous_summary = conversation_summary
+                    conversation_summary, summary_ms = _timed(
+                        lambda: summarizer.update(
+                            previous_summary=previous_summary,
+                            batch_index=summary_batch_index,
+                            messages=list(pending_summary_messages),
+                        )
+                    )
+                    summaries.append(
+                        {
+                            "batch_index": summary_batch_index,
+                            "pair_count": len(
+                                pending_summary_exchange_ids
+                            ),
+                            "exchange_ids": list(
+                                pending_summary_exchange_ids
+                            ),
+                            "latency_ms": summary_ms,
+                            "summary": conversation_summary,
+                        }
+                    )
+                    pending_summary_messages.clear()
+                    pending_summary_exchange_ids.clear()
+
+        if pending_summary_exchange_ids:
+            summary_batch_index += 1
+            previous_summary = conversation_summary
+            conversation_summary, summary_ms = _timed(
+                lambda: summarizer.update(
+                    previous_summary=previous_summary,
+                    batch_index=summary_batch_index,
+                    messages=list(pending_summary_messages),
                 )
             )
-            ingestion.append({"session": key, "latency_ms": latency, "result": result})
+            summaries.append(
+                {
+                    "batch_index": summary_batch_index,
+                    "pair_count": len(pending_summary_exchange_ids),
+                    "exchange_ids": list(pending_summary_exchange_ids),
+                    "final_partial_batch": True,
+                    "latency_ms": summary_ms,
+                    "summary": conversation_summary,
+                }
+            )
         for question in questions:
             try:
                 retrieval, retrieval_ms = _timed(
-                    lambda item=question: adapter.search(
-                        item.question, user_id=user_id
+                    lambda item=question: _search_both_speakers(
+                        adapter,
+                        item.question,
+                        speaker_ids=speaker_ids,
                     )
                 )
                 answer, answer_ms = _timed(
@@ -82,7 +274,7 @@ def run_conversation(
                     generator.answer(
                         question=question.question,
                         category=question.category,
-                        retrieval=[],
+                        retrieval=_empty_retrieval(speaker_ids),
                     )
                     if include_no_memory_control
                     else None
@@ -95,6 +287,19 @@ def run_conversation(
                     if control_answer is not None
                     else None
                 )
+                judge_label = None
+                judge_error = None
+                judge_ms = None
+                try:
+                    judge_label, judge_ms = _timed(
+                        lambda item=question, generated=answer: generator.judge(
+                            question=item.question,
+                            gold_answer=item.answer,
+                            generated_answer=generated,
+                        )
+                    )
+                except Exception as exc:
+                    judge_error = f"{type(exc).__name__}: {exc}"
                 evaluations.append(
                     {
                         "status": "completed",
@@ -114,6 +319,19 @@ def run_conversation(
                         ),
                         "generated_answer": answer,
                         "official_f1": round(f1, 4),
+                        "llm_judge_status": (
+                            "completed"
+                            if judge_label is not None
+                            else "failed"
+                        ),
+                        "llm_judge_label": judge_label,
+                        "llm_judge_correct": (
+                            judge_label == "CORRECT"
+                            if judge_label is not None
+                            else None
+                        ),
+                        "llm_judge_error": judge_error,
+                        "llm_judge_latency_ms": judge_ms,
                         "no_memory_answer": control_answer,
                         "no_memory_official_f1": (
                             round(control_f1, 4)
@@ -145,17 +363,21 @@ def run_conversation(
         status = "failed"
         error = f"{type(exc).__name__}: {exc}"
     finally:
-        try:
-            adapter.delete_all(user_id=user_id)
-        except Exception:
-            pass
+        for speaker_id in speaker_ids.values():
+            try:
+                adapter.delete_all(user_id=speaker_id)
+            except Exception:
+                pass
     return {
         "status": status,
         "error": error,
         "conversation_index": conversation.conversation_index,
         "sample_id": conversation.sample_id,
         "sessions": sessions,
+        "speakers": speaker_ids,
         "ingestion": ingestion,
+        "summary_updates": summaries,
+        "final_conversation_summary": conversation_summary,
         "evaluations": evaluations,
     }
 
@@ -163,6 +385,7 @@ def run_conversation(
 def run_benchmark(
     adapter: MemoryAdapter,
     generator: Generator,
+    summarizer: Summarizer,
     conversations: list[LoCoMoConversation],
     *,
     conversation_limit: int,
@@ -177,6 +400,7 @@ def run_benchmark(
         run_conversation(
             adapter,
             generator,
+            summarizer,
             conversation,
             user_id=f"{user_id_prefix}_{conversation.conversation_index}",
             session_count=session_count,
@@ -204,15 +428,38 @@ def summarize_evaluations(runs: list[dict[str, Any]]) -> dict[str, Any]:
     for item in completed:
         by_category[item["category_name"]].append(item["official_f1"])
     f1_values = [item["official_f1"] for item in completed]
+    judged = [
+        item
+        for item in completed
+        if item.get("llm_judge_label") in {"CORRECT", "WRONG"}
+    ]
+    judge_successes = sum(
+        item["llm_judge_label"] == "CORRECT" for item in judged
+    )
+    judge_by_category: dict[str, list[bool]] = defaultdict(list)
+    for item in judged:
+        judge_by_category[item["category_name"]].append(
+            item["llm_judge_label"] == "CORRECT"
+        )
     control_values = [item["no_memory_official_f1"] for item in controlled]
     paired_memory = [item["official_f1"] for item in controlled]
     retrieval_latencies = [item["retrieval_latency_ms"] for item in completed]
+    judge_latencies = [
+        item["llm_judge_latency_ms"]
+        for item in judged
+        if item.get("llm_judge_latency_ms") is not None
+    ]
     ingestion_latencies = [
         item["latency_ms"] for run in runs for item in run["ingestion"]
     ]
 
     def nonempty(value: Any) -> bool:
         if isinstance(value, dict):
+            if "speakers" in value:
+                return any(
+                    nonempty(item.get("memories", []))
+                    for item in value["speakers"]
+                )
             value = value.get("results", [])
         return bool(value)
 
@@ -226,6 +473,14 @@ def summarize_evaluations(runs: list[dict[str, Any]]) -> dict[str, Any]:
             round(sum(f1_values) / len(f1_values), 4) if f1_values else None
         ),
         "mean_official_f1_95ci": bootstrap_mean_interval(f1_values),
+        "llm_judge_completed_count": len(judged),
+        "llm_judge_failed_count": len(completed) - len(judged),
+        "llm_judge_accuracy": (
+            round(judge_successes / len(judged), 4) if judged else None
+        ),
+        "llm_judge_accuracy_95ci": wilson_interval(
+            judge_successes, len(judged)
+        ),
         "mean_no_memory_f1": (
             round(sum(control_values) / len(control_values), 4)
             if control_values
@@ -286,6 +541,15 @@ def summarize_evaluations(runs: list[dict[str, Any]]) -> dict[str, Any]:
             }
             for label, values in sorted(by_category.items())
         },
+        "llm_judge_by_category": {
+            label: {
+                "count": len(values),
+                "correct": sum(values),
+                "accuracy": round(sum(values) / len(values), 4),
+                "95ci": wilson_interval(sum(values), len(values)),
+            }
+            for label, values in sorted(judge_by_category.items())
+        },
         "ingestion_latency_ms": {
             "p50": _p(ingestion_latencies, 0.50),
             "p95": _p(ingestion_latencies, 0.95),
@@ -293,5 +557,9 @@ def summarize_evaluations(runs: list[dict[str, Any]]) -> dict[str, Any]:
         "retrieval_latency_ms": {
             "p50": _p(retrieval_latencies, 0.50),
             "p95": _p(retrieval_latencies, 0.95),
+        },
+        "llm_judge_latency_ms": {
+            "p50": _p(judge_latencies, 0.50),
+            "p95": _p(judge_latencies, 0.95),
         },
     }

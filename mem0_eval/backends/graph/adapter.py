@@ -11,6 +11,7 @@ from mem0.configs.base import MemoryConfig
 from mem0.memory.graph_memory import MemoryGraph
 from mem0.utils.factory import EmbedderFactory
 from neo4j import GraphDatabase
+from rank_bm25 import BM25Okapi
 from mem0_eval.integrations.deepseek import disable_deepseek_thinking
 
 
@@ -84,21 +85,133 @@ def _harden_generated_graph_identifiers(graph: MemoryGraph) -> None:
 
 class GraphMemoryAdapter:
     def __init__(self, graph: MemoryGraph, *, top_k: int = 5) -> None:
-        if top_k != 5:
-            raise ValueError(
-                "Mem0 v0.1.45 MemoryGraph hardcodes BM25 retrieval to 5 "
-                "results; use top_k=5 for an honest baseline."
-            )
         self.graph = graph
         self.top_k = top_k
+        self._base_custom_prompt = graph.config.graph_store.custom_prompt or ""
 
     def add(self, statement: str, *, user_id: str) -> Any:
         return self.graph.add(statement, {"user_id": user_id})
 
-    def search(self, query: str, *, user_id: str) -> Any:
-        return self.graph.search(
-            query, {"user_id": user_id}, limit=self.top_k
+    def add_exchange(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        user_id: str,
+        speaker: str,
+        session: str,
+        session_date: str,
+        conversation_summary: str,
+        recent_messages: list[str],
+    ) -> Any:
+        statement = (
+            f"Conversation date: {session_date}\n"
+            + "\n".join(message["content"] for message in messages)
         )
+        context = (
+            f"{self._base_custom_prompt} Extract relations specifically about "
+            f"{speaker}. Treat {session_date} as the observation date. The "
+            "following context is for resolving references only; do not create "
+            "relations solely from the context.\n"
+            f"Conversation summary: {conversation_summary or '(none)'}\n"
+            "Previous 10 messages:\n"
+            + ("\n".join(recent_messages) if recent_messages else "(none)")
+        )
+        self.graph.config.graph_store.custom_prompt = context
+        try:
+            result = self.graph.add(statement, {"user_id": user_id})
+            self._stamp_added_relations(
+                result,
+                user_id=user_id,
+                session=session,
+                session_date=session_date,
+            )
+            return result
+        finally:
+            self.graph.config.graph_store.custom_prompt = self._base_custom_prompt
+
+    def _stamp_added_relations(
+        self,
+        result: Any,
+        *,
+        user_id: str,
+        session: str,
+        session_date: str,
+    ) -> None:
+        if not isinstance(result, dict):
+            return
+        for response_group in result.get("added_entities", []):
+            for relation in response_group or []:
+                try:
+                    self.graph.graph.query(
+                        """
+                        MATCH (source {user_id: $user_id})-[r]->(destination {user_id: $user_id})
+                        WHERE source.name = $source
+                          AND destination.name = $destination
+                          AND type(r) = $relationship
+                        SET r.conversation_date = $session_date,
+                            r.conversation_session = $session
+                        """,
+                        params={
+                            "user_id": user_id,
+                            "source": relation["source"],
+                            "destination": relation["target"],
+                            "relationship": relation["relationship"],
+                            "session_date": session_date,
+                            "session": session,
+                        },
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Could not attach conversation date to graph relation: %s",
+                        exc,
+                    )
+
+    def search(self, query: str, *, user_id: str) -> Any:
+        filters = {"user_id": user_id}
+        entity_type_map = self.graph._retrieve_nodes_from_data(query, filters)
+        search_output = self.graph._search_graph_db(
+            node_list=list(entity_type_map.keys()),
+            filters=filters,
+        )
+        if not search_output:
+            return []
+        sequences: list[list[str]] = [
+            [item["source"], item["relatationship"], item["destination"]]
+            for item in search_output
+        ]
+        scores = BM25Okapi(sequences).get_scores(query.split())
+        ranked_indices = sorted(
+            range(len(search_output)),
+            key=lambda index: scores[index],
+            reverse=True,
+        )[: self.top_k]
+        ranked = [search_output[index] for index in ranked_indices]
+        relation_ids = [item["relation_id"] for item in ranked]
+        date_rows = self.graph.graph.query(
+            """
+            MATCH ()-[r]->()
+            WHERE elementId(r) IN $relation_ids
+            RETURN elementId(r) AS relation_id,
+                   r.conversation_date AS conversation_date,
+                   r.conversation_session AS conversation_session
+            """,
+            params={"relation_ids": relation_ids},
+        )
+        dates = {row["relation_id"]: row for row in date_rows}
+        return [
+            {
+                "source": row["source"],
+                "relationship": row["relatationship"],
+                "destination": row["destination"],
+                "conversation_date": dates.get(row["relation_id"], {}).get(
+                    "conversation_date"
+                ),
+                "conversation_session": dates.get(row["relation_id"], {}).get(
+                    "conversation_session"
+                ),
+            }
+            for row in ranked
+        ]
 
     def get_all(self, *, user_id: str) -> Any:
         return self.graph.get_all({"user_id": user_id}, limit=100)

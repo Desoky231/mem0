@@ -71,6 +71,13 @@ uv run --project mem0_eval/backends/graph \
   python -m mem0_eval.run memory-changes --backend graph
 ```
 
+Clear all local Neo4j benchmark data without stopping the container:
+
+```bash
+uv run --project mem0_eval/backends/graph \
+  python -m mem0_eval.backends.graph.clear_neo4j
+```
+
 See [`mem0_eval/backends/graph/README.md`](mem0_eval/backends/graph/README.md)
 for why this
 separation is necessary.
@@ -113,6 +120,13 @@ an LLM judge. The cases and complete protocol are in
 The current results are small pilot experiments, not full benchmark
 reproductions. The main generated report is available in
 [`docs/reports/mem0_paired_baseline_evaluation.html`](docs/reports/mem0_paired_baseline_evaluation.html).
+
+LoCoMo is ingested chronologically as message pairs. Each speaker has a
+separate memory scope. A rolling window of the previous 10 messages continues
+across session boundaries using Mem0's native history. Every five pairs,
+DeepSeek updates an 800-token key-knowledge summary organized by person and
+shared timeline. Answers use the paper's results-generation prompt and are
+scored with both token F1 and its LLM-judge prompt.
 
 Run the network-free checks with:
 

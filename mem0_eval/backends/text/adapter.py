@@ -22,6 +22,39 @@ class TextMemoryAdapter:
     def add(self, statement: str, *, user_id: str) -> Any:
         return self.memory.add(statement, user_id=user_id, infer=True)
 
+    def add_exchange(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        user_id: str,
+        speaker: str,
+        session: str,
+        session_date: str,
+        conversation_summary: str,
+        recent_messages: list[str],
+    ) -> Any:
+        context = (
+            f"Extract memories only about {speaker}. The new exchange occurred "
+            f"on {session_date}; use that as the observation date and preserve "
+            "absolute dates in temporal memories. Mem0 supplies its native "
+            "previous-10-message window. Use the following key-knowledge "
+            "summary only to resolve broader context, references, and pronouns. "
+            "Never extract an old fact merely because it appears in the "
+            "summary.\n\n"
+            f"Key-knowledge summary:\n{conversation_summary or '(none)'}"
+        )
+        return self.memory.add(
+            messages,
+            user_id=user_id,
+            metadata={
+                "speaker": speaker,
+                "session": session,
+                "conversation_date": session_date,
+            },
+            infer=True,
+            prompt=context,
+        )
+
     def search(self, query: str, *, user_id: str) -> Any:
         return self.memory.search(
             query,
