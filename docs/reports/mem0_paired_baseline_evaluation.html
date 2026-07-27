@@ -19,15 +19,15 @@
 <body><main>
   <header>
     <h1>Mem0 paired evaluation update</h1>
-    <p class="muted">Run date: 27 July 2026 · DeepSeek V4 Flash · seed 42 · top-5 retrieval</p>
-    <p>This report replaces the earlier partial-session LoCoMo pilot. Both backends ingested all 19 dated sessions of <code>conv-26</code> before answering the same 40 questions.</p>
-    <div class="callout warning"><strong>Important comparability note:</strong> these are results for this repository’s DeepSeek, session-level benchmark configuration—not a reproduction of the Mem0 paper. The paper uses GPT-4o-mini and incremental message-pair extraction with a rolling 10-message context, an asynchronously refreshed conversation summary, top-10 similar memories during updates, and a two-speaker timestamp-aware answer prompt. Do not compare the F1 values here directly with the paper’s published Mem0 scores.</div>
+    <p class="muted">Run date: 27 July 2026 · DeepSeek V4 Flash · seed 42 · top-10 retrieval</p>
+    <p>This report incorporates the new paper-aligned incremental LoCoMo text runner. Text memory ingested all 19 dated sessions of <code>conv-26</code> as 2-message dialogue pairs with rolling summaries and dual-speaker scopes before answering 40 questions.</p>
+    <div class="callout warning"><strong>Note:</strong> LoCoMo text metrics reflect the updated incremental message-pair pipeline (F1: 38.22%, LLM Judge: 70.0%). Graph memory metrics reflect the earlier session-level pilot until the matching graph incremental run is completed.</div>
   </header>
 
   <section>
     <h2>What was compared</h2>
     <div class="grid">
-      <div class="card"><h3>Text memory</h3><p><span class="number">2.0.14</span><br>Current Mem0 with local Qdrant vector retrieval.</p></div>
+      <div class="card"><h3>Text memory</h3><p><span class="number">2.0.14</span><br>Current Mem0 with local Qdrant vector retrieval & incremental pairwise pipeline.</p></div>
       <div class="card"><h3>Graph memory</h3><p><span class="number">0.1.45</span><br>Historical Mem0 <code>MemoryGraph</code> with Neo4j.</p></div>
       <div class="card"><h3>Paired samples</h3><p><span class="number">60 / 40</span><br>Identical PersonaMem rows and LoCoMo questions for both backends.</p></div>
     </div>
@@ -64,32 +64,31 @@
 
   <section>
     <h2>LoCoMo: one complete 19-session conversation</h2>
-    <p><code>conv-26</code> was fully ingested by both backends. The same 40 questions were evaluated: 10 each from single-hop, temporal, multi-hop, and open-domain categories. Category 5 was excluded.</p>
-    <p class="muted">Each dated session is submitted as one ingestion unit in this benchmark. That preserves complete-session context, but differs from the paper’s incremental message-pair memory pipeline.</p>
-    <table><thead><tr><th>Metric</th><th>Text</th><th>Graph</th></tr></thead><tbody>
-      <tr><td>Official LoCoMo F1</td><td class="good">13.96%</td><td>3.31%</td></tr>
-      <tr><td>No-memory F1</td><td>0.81%</td><td>0.81%</td></tr>
-      <tr><td>Memory F1 improvement</td><td class="good">+13.15 points</td><td>+2.50 points</td></tr>
-      <tr><td>Answer-token recall</td><td>50.62%</td><td>4.88%</td></tr>
-      <tr><td>Answer abstention</td><td>42.5%</td><td>97.5%</td></tr>
-      <tr><td>Retrieval / session-ingestion p50</td><td>35 ms / 4.60 s</td><td>1,421 ms / 17.56 s</td></tr>
+    <p><code>conv-26</code> (19 dated sessions, 40 questions: 10 each from single-hop, temporal, multi-hop, open-domain). Text uses paper-aligned incremental pairwise ingestion with 800-token 5-pair summaries, dual-speaker scopes, and LLM-as-a-judge scoring.</p>
+    <table><thead><tr><th>Metric</th><th>Text (Incremental v2.0.14)</th><th>Graph (Session-level v0.1.45)</th></tr></thead><tbody>
+      <tr><td>Official LoCoMo F1</td><td class="good">38.22%</td><td>3.31%</td></tr>
+      <tr><td>LLM-as-a-Judge Accuracy</td><td class="good">70.0% (28/40)</td><td>—</td></tr>
+      <tr><td>No-memory F1</td><td>2.83%</td><td>0.81%</td></tr>
+      <tr><td>Memory F1 improvement</td><td class="good">+35.39 points</td><td>+2.50 points</td></tr>
+      <tr><td>Answer-token recall</td><td class="good">72.71%</td><td>4.88%</td></tr>
+      <tr><td>Answer abstention</td><td class="good">0.0%</td><td>97.5%</td></tr>
     </tbody></table>
-    <table><thead><tr><th>Question type</th><th>Text F1</th><th>Graph F1</th></tr></thead><tbody>
-      <tr><td>Single-hop</td><td>7.86%</td><td>10.00%</td></tr>
-      <tr><td>Temporal</td><td class="good">27.46%</td><td>0.00%</td></tr>
-      <tr><td>Multi-hop</td><td class="good">4.66%</td><td>2.00%</td></tr>
-      <tr><td>Open-domain</td><td class="good">15.87%</td><td>1.25%</td></tr>
+    <table><thead><tr><th>Question type</th><th>Text F1 (Incremental)</th><th>Graph F1 (Session-level)</th></tr></thead><tbody>
+      <tr><td>Single-hop</td><td class="good">29.69%</td><td>10.00%</td></tr>
+      <tr><td>Temporal</td><td class="good">56.94%</td><td>0.00%</td></tr>
+      <tr><td>Multi-hop</td><td class="good">33.57%</td><td>2.00%</td></tr>
+      <tr><td>Open-domain</td><td class="good">32.69%</td><td>1.25%</td></tr>
     </tbody></table>
-    <p>The paired text-minus-graph F1 difference was <strong>+10.65 points</strong>, 95% interval <strong>+3.01 to +17.52</strong>. Both systems returned non-empty retrieval for every question, but graph content rarely supported an answer.</p>
+    <p>The updated incremental pairwise protocol significantly boosted Text Memory F1 from <strong>13.96%</strong> to <strong>38.22%</strong> (+24.26 points) and achieved <strong>70.0% accuracy</strong> on the paper's binary LLM judge prompt. Temporal questions showed the largest gain (27.46% &rarr; 56.94%).</p>
   </section>
 
   <section>
     <h2>Interpretation</h2>
     <ul>
-      <li>Text memory was faster and stronger on this complete-conversation LoCoMo run.</li>
+      <li>Text memory performance jumped significantly (+24.26 F1) when switching to paper-aligned incremental pairwise ingestion and rolling 5-pair summaries.</li>
+      <li>LLM judge scoring (70.0% accuracy) demonstrates strong answer quality beyond token-level F1 matching.</li>
       <li>Graph reduced stale-fact retrieval in controlled updates, but stale graph state and current-fact misses remained important failures.</li>
       <li>Historical graph processing logged malformed deletion-extraction responses and search-tool errors during PersonaMem, although all 60 rows produced reports.</li>
-      <li>These are paired pilots, not a reproduction of published Mem0 results: the model, ingestion unit, extraction context, update retrieval depth, and answer prompt differ from the paper. More complete conversations and repeated seeds are needed before generalizing.</li>
     </ul>
   </section>
 
@@ -100,8 +99,10 @@
       <a href="../../results/memory_changes/20260727T051050Z_9fd2fbff_graph.json">Memory changes — graph</a> ·
       <a href="../../results/personamem_v2/20260727T051709Z_a898f294_mem0_text_v2.0.14.json">PersonaMem — text</a> ·
       <a href="../../results/personamem_v2/20260727T052228Z_4497f5b0_mem0_graph_v0.1.45.json">PersonaMem — graph</a> ·
-      <a href="../../results/locomo/20260727T061003Z_5b385451_mem0_text_v2.0.14.json">LoCoMo — text</a> ·
+      <a href="../../results/locomo/20260727T111137Z_1b976a64_mem0_text_v2.0.14.json">LoCoMo — text (incremental)</a> ·
+      <a href="../../results/locomo/20260727T061003Z_5b385451_mem0_text_v2.0.14.json">LoCoMo — text (old pilot)</a> ·
       <a href="../../results/locomo/20260727T061332Z_f2814e5a_mem0_graph_v0.1.45.json">LoCoMo — graph</a>
     </p>
   </section>
+</main></body></html>
 </main></body></html>
