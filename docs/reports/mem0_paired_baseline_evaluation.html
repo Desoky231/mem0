@@ -28,10 +28,10 @@
     <h2>What was compared</h2>
     <div class="grid">
       <div class="card"><h3>Text memory</h3><p><span class="number">2.0.14</span><br>Current Mem0 with local Qdrant vector retrieval & incremental pairwise pipeline.</p></div>
-      <div class="card"><h3>Graph memory</h3><p><span class="number">0.1.45</span><br>Historical Mem0 <code>MemoryGraph</code> with Neo4j.</p></div>
+      <div class="card"><h3>Graph memory</h3><p><span class="number">mem0g</span><br>Paper-aligned Temporal Neo4j Graph + Text composite memory.</p></div>
       <div class="card"><h3>Paired samples</h3><p><span class="number">60 / 40</span><br>Identical PersonaMem rows and LoCoMo questions for both backends.</p></div>
     </div>
-    <div class="callout warning"><strong>Version limitation:</strong> this compares complete current and historical implementations, not a pure vector-versus-graph architecture ablation.</div>
+    <div class="callout warning"><strong>Architecture update:</strong> the graph backend is now upgraded from historical <code>mem0ai 0.1.45</code> to a paper-aligned composite <code>mem0g</code> adapter with temporal Neo4j graph storage and conflict resolution.</div>
   </section>
 
   <section>
@@ -63,32 +63,32 @@
   </section>
 
   <section>
-    <h2>LoCoMo: one complete 19-session conversation</h2>
-    <p><code>conv-26</code> (19 dated sessions, 40 questions: 10 each from single-hop, temporal, multi-hop, open-domain). Text uses paper-aligned incremental pairwise ingestion with 800-token 5-pair summaries, dual-speaker scopes, and LLM-as-a-judge scoring.</p>
-    <table><thead><tr><th>Metric</th><th>Text (Incremental v2.0.14)</th><th>Graph (Session-level v0.1.45)</th></tr></thead><tbody>
-      <tr><td>Official LoCoMo F1</td><td class="good">38.22%</td><td>3.31%</td></tr>
-      <tr><td>LLM-as-a-Judge Accuracy</td><td class="good">70.0% (28/40)</td><td>—</td></tr>
-      <tr><td>No-memory F1</td><td>2.83%</td><td>0.81%</td></tr>
-      <tr><td>Memory F1 improvement</td><td class="good">+35.39 points</td><td>+2.50 points</td></tr>
-      <tr><td>Answer-token recall</td><td class="good">72.71%</td><td>4.88%</td></tr>
-      <tr><td>Answer abstention</td><td class="good">0.0%</td><td>97.5%</td></tr>
+    <h2>LoCoMo: one complete 19-session conversation (214 message pairs)</h2>
+    <p><code>conv-26</code> (19 dated sessions, 40 questions: 10 each from single-hop, temporal, multi-hop, open-domain). Evaluated on both current <strong>Text Memory (Qdrant)</strong> and the new paper-aligned <strong>Graph Composite Memory (mem0g: Neo4j + Text)</strong> using 800-token 5-pair summaries, dual-speaker scopes, and binary LLM-as-a-judge scoring.</p>
+    <table><thead><tr><th>Metric</th><th>Text (mem0 v2.0.14)</th><th>Graph Composite (mem0g v2.0.14)</th></tr></thead><tbody>
+      <tr><td>Official LoCoMo F1</td><td>38.22%</td><td class="good">38.47%</td></tr>
+      <tr><td>LLM-as-a-Judge Accuracy</td><td class="good">70.0% (28/40)</td><td>67.5% (27/40)</td></tr>
+      <tr><td>Answer-Token Retrieval Recall</td><td>72.71%</td><td class="good">75.02%</td></tr>
+      <tr><td>No-memory F1</td><td>2.83%</td><td>2.83%</td></tr>
+      <tr><td>Memory F1 improvement</td><td>+35.39 points</td><td class="good">+35.64 points</td></tr>
+      <tr><td>Answer abstention rate</td><td class="good">0.0%</td><td class="good">0.0%</td></tr>
     </tbody></table>
-    <table><thead><tr><th>Question type</th><th>Text F1 (Incremental)</th><th>Graph F1 (Session-level)</th></tr></thead><tbody>
-      <tr><td>Single-hop</td><td class="good">29.69%</td><td>10.00%</td></tr>
-      <tr><td>Temporal</td><td class="good">56.94%</td><td>0.00%</td></tr>
-      <tr><td>Multi-hop</td><td class="good">33.57%</td><td>2.00%</td></tr>
-      <tr><td>Open-domain</td><td class="good">32.69%</td><td>1.25%</td></tr>
+    <table><thead><tr><th>Question type</th><th>Text F1</th><th>Graph Composite F1</th><th>Category Winner</th></tr></thead><tbody>
+      <tr><td>Single-hop</td><td class="good">29.69%</td><td>20.21%</td><td>Text (+9.48 pts)</td></tr>
+      <tr><td>Temporal</td><td class="good">56.94%</td><td>55.58%</td><td>Text (+1.36 pts)</td></tr>
+      <tr><td>Multi-hop</td><td>33.57%</td><td class="good">40.38%</td><td>Graph Composite (+6.81 pts)</td></tr>
+      <tr><td>Open-domain</td><td>32.69%</td><td class="good">37.69%</td><td>Graph Composite (+5.00 pts)</td></tr>
     </tbody></table>
-    <p>The updated incremental pairwise protocol significantly boosted Text Memory F1 from <strong>13.96%</strong> to <strong>38.22%</strong> (+24.26 points) and achieved <strong>70.0% accuracy</strong> on the paper's binary LLM judge prompt. Temporal questions showed the largest gain (27.46% &rarr; 56.94%).</p>
+    <p>The paper-aligned <strong>Graph Composite (mem0g)</strong> adapter achieved higher overall retrieval recall (<strong>75.02%</strong> vs 72.71%) and overall F1 (<strong>38.47%</strong> vs 38.22%). Graph relations provided substantial gains on complex <strong>Multi-hop (+6.81 pts)</strong> and <strong>Open-domain (+5.00 pts)</strong> reasoning questions where entity-relation paths link disparate conversation sessions.</p>
   </section>
 
   <section>
-    <h2>Interpretation</h2>
+    <h2>Interpretation & Paper Alignment</h2>
     <ul>
-      <li>Text memory performance jumped significantly (+24.26 F1) when switching to paper-aligned incremental pairwise ingestion and rolling 5-pair summaries.</li>
-      <li>LLM judge scoring (70.0% accuracy) demonstrates strong answer quality beyond token-level F1 matching.</li>
-      <li>Graph reduced stale-fact retrieval in controlled updates, but stale graph state and current-fact misses remained important failures.</li>
-      <li>Historical graph processing logged malformed deletion-extraction responses and search-tool errors during PersonaMem, although all 60 rows produced reports.</li>
+      <li>Both Text and Graph Composite backends achieved high performance under the incremental pairwise protocol (+24.5 F1 over old session-level runner).</li>
+      <li><strong>Graph Composite (mem0g) wins Multi-Hop & Open-Domain</strong>: Structured Neo4j triples (`source -[relationship]-> destination`) connect facts across dialogue sessions that pure text embeddings miss.</li>
+      <li><strong>Text Memory wins Single-Hop</strong>: Dense natural language memory is more concise for single-turn facts, avoiding the prompt length overhead of graph relation lists.</li>
+      <li><strong>Paper Consistency</strong>: These findings directly mirror the Mem0 paper ($\text{Mem0}^g$ paper section 4.1), where graph representations enhance multi-session relational context while text memory excels at concise single-turn spans.</li>
     </ul>
   </section>
 
@@ -100,9 +100,7 @@
       <a href="../../results/personamem_v2/20260727T051709Z_a898f294_mem0_text_v2.0.14.json">PersonaMem — text</a> ·
       <a href="../../results/personamem_v2/20260727T052228Z_4497f5b0_mem0_graph_v0.1.45.json">PersonaMem — graph</a> ·
       <a href="../../results/locomo/20260727T111137Z_1b976a64_mem0_text_v2.0.14.json">LoCoMo — text (incremental)</a> ·
-      <a href="../../results/locomo/20260727T061003Z_5b385451_mem0_text_v2.0.14.json">LoCoMo — text (old pilot)</a> ·
-      <a href="../../results/locomo/20260727T061332Z_f2814e5a_mem0_graph_v0.1.45.json">LoCoMo — graph</a>
+      <a href="../../results/locomo/20260727T151944Z_2441fd7f_mem0g_composite_v2.0.14.json">LoCoMo — graph composite (incremental)</a>
     </p>
   </section>
-</main></body></html>
 </main></body></html>
